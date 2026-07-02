@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Книголюб Офлайн</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { margin: 0; padding: 0; background: #eedeb0; overflow: hidden; font-family: sans-serif; user-select: none; touch-action: none; }
+        canvas { display: block; background: #fffcf2; margin: 0 auto; }
+    </style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<script>
+// Регистрация офлайн-режима
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const WIDTH = window.innerWidth > 450 ? 450 : window.innerWidth;
+const HEIGHT = window.innerHeight;
+canvas.width = WIDTH; canvas.height = HEIGHT;
+
+let score = 0, lives = 3, gameOver = false;
+let playerX = WIDTH / 2 - 40, playerW = 80, playerH = 20;
+let books = [], bookSpeed = 4, spawnTimer = 0;
+
+// Управление движением пальца (touch)
+window.addEventListener('touchmove', (e) => {
+    let touchX = e.touches[0].clientX - canvas.offsetLeft;
+    playerX = Math.max(0, Math.min(WIDTH - playerW, touchX - playerW / 2));
+});
+
+function spawn() {
+    books.push({ x: Math.random() * (WIDTH - 30), y: -40, w: 30, h: 40, c: `hsl(${Math.random() * 360}, 70%, 50%)` });
+}
+
+function loop() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    
+    // Игрок
+    ctx.fillStyle = "#5c3a21";
+    ctx.fillRect(playerX, HEIGHT - 60, playerW, playerH);
+
+    if (!gameOver) {
+        spawnTimer++;
+        if (spawnTimer > Math.max(20, 60 - score)) { spawnTimer = 0; spawn(); }
+
+        for (let i = books.length - 1; i >= 0; i--) {
+            let b = books[i]; b.y += bookSpeed;
+            
+            // Поймал
+            if (b.y + b.h > HEIGHT - 60 && b.y < HEIGHT - 40 && b.x + b.w > playerX && b.x < playerX + playerW) {
+                books.splice(i, 1); score++; bookSpeed += 0.1; continue;
+            }
+            // Уронил
+            if (b.y > HEIGHT) { books.splice(i, 1); lives--; if (lives <= 0) gameOver = true; }
+        }
+    }
+
+    // Рисуем книги
+    books.forEach(b => { ctx.fillStyle = b.c; ctx.fillRect(b.x, b.y, b.w, b.h); });
+
+    // UI
+    ctx.fillStyle = "#000"; ctx.font = "20px Arial";
+    ctx.fillText(`Счет: ${score}`, 20, 40);
+    ctx.fillText(`Жизни: ${"❤️".repeat(lives)}`, WIDTH - 120, 40);
+
+    if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,WIDTH,HEIGHT);
+        ctx.fillStyle = "#fff"; ctx.textAlign = "center";
+        ctx.font = "24px Arial"; ctx.fillText("ИГРА ОКОНЧЕНА", WIDTH/2, HEIGHT/2 - 20);
+        ctx.font = "16px Arial"; ctx.fillText("Нажми сюда, чтобы начать заново", WIDTH/2, HEIGHT/2 + 20);
+    }
+    requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click', () => { if (gameOver) { score = 0; lives = 3; bookSpeed = 4; books = []; gameOver = false; } });
+loop();
+</script>
+</body>
+</html>
